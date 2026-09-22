@@ -1,0 +1,33 @@
+* OPA1652 — BEHAVIORAL SUBSTITUTE, not the TI macromodel.
+* TI's SPICE model is behind a click-through licence (ti.com/product/OPA1652 ->
+* "Design tools & simulation"). Drop it in this directory as opa1652_ti.lib and
+* set OPAMP_MODEL=ti in ../validate/config.py to use it instead.
+*
+* Parameters from the OPA1652 datasheet (SBOS477): GBW 18 MHz, slew 10 V/us,
+* Aol 120 dB, rail-to-rail output (~60 mV from the rails at light load),
+* differential input capacitance ~8 pF (JFET input, bias current negligible).
+* Single dominant pole, slew limited by clamping the gm-stage current, output
+* hard-limited at the rails. No noise, no offset, no output current limit.
+.subckt OPA1652_BEHAV inp inn vcc vee out
+.param GBW=18e6 AOL=1e6 SR=10e6 CIN=8p ROUT=20 VSAT=0.06 GM=1e-3
+.param C1={GM/(2*3.14159265*GBW)}
+.param R1={AOL/GM}
+.param IMAX={SR*C1}
+Cin  inp inn {CIN}
+Rin  inp inn 1e12
+Emid mid 0 VALUE={0.5*(V(vcc)+V(vee))}
+* gm stage into the dominant pole, tanh-limited current gives the slew limit
+Bgm  mid n1 I={IMAX*tanh(GM*V(inp,inn)/IMAX)}
+R1   n1 mid {R1}
+C1   n1 mid {C1}
+* anti-wind-up: hold the integrator node near the rails so overload recovery is
+* immediate (a real output stage saturates; it does not keep integrating)
+Vclh clh vcc {-VSAT+0.05}
+Vcll cll vee {VSAT-0.05}
+Dclh n1 clh DCLAMP
+Dcll cll n1 DCLAMP
+.model DCLAMP D(IS=1e-12 N=0.2 RS=1)
+* rail-to-rail output stage
+Bout outi 0 V={max(min(V(n1), V(vcc)-VSAT), V(vee)+VSAT)}
+Rout outi out {ROUT}
+.ends OPA1652_BEHAV

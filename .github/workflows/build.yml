@@ -1,0 +1,65 @@
+name: build
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  emulator:
+    name: emulator (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        working-directory: emulator
+        run: cmake -B build -DPEDAL_BUILD_JUCE=ON -DCMAKE_BUILD_TYPE=Release
+      - name: Build
+        working-directory: emulator
+        run: cmake --build build --config Release --parallel 4 --target dsp_tests emu PedalEmu_Standalone PedalEmu_VST3
+      - name: DSP property tests
+        working-directory: emulator
+        shell: bash
+        run: |
+          if [ -x build/Release/dsp_tests.exe ]; then build/Release/dsp_tests.exe; else build/dsp_tests; fi
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        working-directory: emulator/build/juce/PedalEmu_artefacts/Release
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Copy-Item Standalone/PedalEmu.exe dist/
+          Copy-Item -Recurse VST3/PedalEmu.vst3 dist/
+          Copy-Item ../../../../../LICENSE dist/
+          Copy-Item ../../../../assets/README.md dist/ASSETS-README.md
+          Copy-Item ../../../../assets/FREEPATS-LICENSE-CC0.txt dist/
+          Compress-Archive -Path dist/* -DestinationPath PedalEmu-windows-x64.zip
+      - name: Package (macOS)
+        if: runner.os == 'macOS'
+        working-directory: emulator/build/juce/PedalEmu_artefacts/Release
+        run: |
+          mkdir -p dist && cp -R Standalone/PedalEmu.app VST3/PedalEmu.vst3 dist/ && cp ../../../../../LICENSE dist/
+          ditto -c -k --keepParent dist PedalEmu-macos.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PedalEmu-${{ runner.os }}
+          path: emulator/build/juce/PedalEmu_artefacts/Release/PedalEmu-*.zip
+
+  release:
+    needs: emulator
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { path: artifacts }
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/**/PedalEmu-*.zip
+          generate_release_notes: true

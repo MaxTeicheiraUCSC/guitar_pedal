@@ -1,0 +1,45 @@
+* Seed3 instrument-level INPUT stage — datasheet Fig 3.4 (Seed3 Pedal Dev Kit)
+* jack tip -> 10u -> [1M to AREF] -> 100R/100p -> OPA1652 buffer -> 3k3/4k7 + 1n
+*   -> 10u -> 10k -> OPA1652 inverting (6k8 || 470p, gain 0.68 so the op-amp clips before the codec) -> 100R -> 33n -> codec pin
+* Stimulus: XSPICE filesource text file "time volts" at the jack tip (plug inserted,
+* so the 10k tip-normal pull-down is out of circuit).
+.include {MODELS}/opa1652_behavioral.lib
+.param VBIAS=4.5
+V9   vcc  0 9
+Vb   bias 0 {VBIAS}
+* --- stimulus ---
+A1 %v([jack]) filesrc
+.model filesrc filesource (file="{STIM}" amploffset=[0] amplscale=[1] timeoffset=0 timescale=1 timerelative=false amplstep=false)
+Rj   jack 0 1e9
+* --- stage 1: buffer ---
+C1   jack n1 10u
+R1   n1 bias 1meg
+R2   n1 opin 100
+C2   opin 0 100p
+X1   opin out1 vcc 0 out1 OPA1652_BEHAV
+* --- attenuator + coupling ---
+R3   out1 nb 3.3k
+C3   nb 0 1n
+R4   nb 0 4.7k
+C4   nb n2 10u
+* --- stage 2: inverting x-1 ---
+R5   n2 inn2 10k
+X2   bias inn2 vcc 0 out2 OPA1652_BEHAV
+R6   inn2 out2 6.8k
+C6   inn2 out2 470p
+* --- RC to codec ---
+R7   out2 codec 100
+C7   codec 0 33n
+* --- codec input: AC coupled, 20k typ. No clamp on the board as drawn. ---
+Ccod codec cin 4.7u
+Rcod cin cbias 20k
+Vcb  cbias 0 1.65
+.control
+set wr_vecnames
+set wr_singlescale
+tran {TSTEP} {TSTOP} 0 {TSTEP}
+linearize v(codec) v(out1) v(out2) v(cin)
+wrdata {OUT} v(codec) v(out1) v(out2) v(cin)
+quit
+.endc
+.end

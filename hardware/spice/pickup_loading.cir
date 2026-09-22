@@ -1,0 +1,21 @@
+* Design check: guitar pickup driving the pedal input through a cable.
+* Pickup model: L 2.5 H, R 7 k, C 100 p (single coil, mid-range values), cable 500 p.
+* Compares the pedal input (1M || 100p) against a 10k load (what the tip-normal
+* pull-down would do if it were in circuit) — run: ngspice -b pickup_loading.cir
+Vp   src 0 AC 1
+Lp   src a 2.5
+Rp   a  pu 7k
+Cp   pu 0 100p
+Ccab pu 0 500p
+* pedal input as designed
+Rin  pu 0 1meg
+Cin  pu 0 100p
+.control
+ac dec 50 20 20k
+let g = db(v(pu))
+meas ac peak MAX g from=20 to=20k
+meas ac f_res WHEN g=peak
+print peak f_res
+quit
+.endc
+.end

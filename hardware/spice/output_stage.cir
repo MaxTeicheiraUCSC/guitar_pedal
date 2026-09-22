@@ -1,0 +1,29 @@
+* Seed3 instrument-level OUTPUT stage — datasheet Fig 3.5
+* DAC (0 dBFS = 1 Vrms) -> 10u -> 15k -> OPA1652 inverting (33k || 100p) -> 100R -> 10u -> jack, 10k to GND
+* Load: amp input 1M || 500p (cable + input capacitance)
+.include {MODELS}/opa1652_behavioral.lib
+.param VBIAS=4.5
+V9   vcc  0 9
+Vb   bias 0 {VBIAS}
+A1 %v([dac]) filesrc
+.model filesrc filesource (file="{STIM}" amploffset=[0] amplscale=[1] timeoffset=0 timescale=1 timerelative=false amplstep=false)
+Rd   dac 0 1e9
+Cdac dac n1 10u
+R1   n1 inn 15k
+X1   bias inn vcc 0 out OPA1652_BEHAV
+R2   inn out 33k
+C2   inn out 100p
+R3   out n2 100
+C3   n2 jack 10u
+R4   jack 0 10k
+Rload jack 0 1meg
+Cload jack 0 500p
+.control
+set wr_vecnames
+set wr_singlescale
+tran {TSTEP} {TSTOP} 0 {TSTEP}
+linearize v(jack) v(out)
+wrdata {OUT} v(jack) v(out)
+quit
+.endc
+.end

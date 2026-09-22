@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pedal</title>
+<style>
+ :root{color-scheme:dark;font-family:system-ui,sans-serif;background:#1e2126;color:#e8e8e8}
+ body{margin:0;padding:12px;max-width:720px;margin-inline:auto}
+ h1{font-size:18px;margin:6px 0 12px}
+ .fx{background:#2b2f36;border-radius:10px;padding:10px 12px;margin-bottom:10px}
+ .fx header{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+ .fx header b{flex:1}
+ button{background:#3a3f47;color:#eee;border:0;border-radius:6px;padding:6px 10px;font-size:14px}
+ button.on{background:#3a5a40;box-shadow:0 0 0 2px #5ee07a inset}
+ .p{display:grid;grid-template-columns:110px 1fr 70px;gap:6px;align-items:center;font-size:13px;margin:3px 0}
+ input[type=range]{width:100%}
+ .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0}
+ select,input[type=number]{background:#3a3f47;color:#eee;border:0;border-radius:6px;padding:5px}
+ #status{font-size:12px;opacity:.7}
+</style></head><body>
+<h1>Pedal <span id="status">connecting…</span></h1>
+<div class="row">Chain: <span id="order"></span></div>
+<div class="row">
+ High-cut <select id="hp"><option value=0>off</option><option value=1>A</option><option value=2>B</option></select>
+ A <input type=number id="hpA" min=20 max=2000 style="width:70px"> B <input type=number id="hpB" min=20 max=2000 style="width:70px"> Hz
+ &nbsp; Low-cut <select id="lp"><option value=0>off</option><option value=1>A</option><option value=2>B</option></select>
+ A <input type=number id="lpA" min=1000 max=20000 style="width:70px"> B <input type=number id="lpB" min=1000 max=20000 style="width:70px"> Hz
+</div>
+<div class="row"><button id="tap">TAP</button> <span id="bpm"></span> &nbsp; Preset <select id="slot"></select> <button id="load">Load</button> <button id="save">Save</button></div>
+<div id="effects"></div>
+<script>
+// Parameter tables mirror firmware/dsp (name, min, max, curve, unit). CC = fx*8 + index.
+const FX=[
+ {n:"Tremolo",p:[["Rate",.1,20,"log","Hz"],["Depth",0,1,"lin",""],["Shape",0,4,"steps",""],["Harmonic",0,1,"sw",""],["StereoPhase",0,180,"lin","°"],["Crossover",200,2000,"log","Hz"],["Volume",-12,12,"lin","dB"]]},
+ {n:"Delay",p:[["Time",10,2000,"log","ms"],["Feedback",0,1.1,"lin",""],["Mix",0,1,"lin",""],["LowCut",20,2000,"log","Hz"],["HighCut",500,20000,"log","Hz"],["Mod",0,1,"lin",""],["PingPong",0,1,"sw",""],["Subdiv",0,5,"steps",""]]},
+ {n:"Reverb",p:[["Mix",0,1,"lin",""],["Decay",0,.98,"lin",""],["PreDelay",0,250,"lin","ms"],["HighCut",500,20000,"log","Hz"],["LowCut",20,1000,"log","Hz"],["Mod",0,1,"lin",""],["Diffusion",0,1,"lin",""],["Width",0,1,"lin",""]]},
+ {n:"Fuzz",p:[["Gain",0,60,"lin","dB"],["Bias",-1,1,"lin",""],["Tone",-1,1,"lin",""],["Volume",-30,6,"lin","dB"],["Mode",0,2,"steps",""],["Oversample",0,2,"steps",""],["Gate",-90,-20,"lin","dB"],["LowCut",20,500,"log","Hz"]]}];
+const toReal=(d,n)=>d[3]=="log"?d[1]*Math.pow(d[2]/d[1],n):d[3]=="sw"?(n>=.5?1:0):d[3]=="steps"?Math.floor(n*(d[2]+1-.001)):d[1]+(d[2]-d[1])*n;
+const fmt=(d,n)=>{const v=toReal(d,n);return d[3]=="sw"?(v?"on":"off"):d[3]=="steps"?String(v):(v.toFixed(v<10?2:v<100?1:0)+" "+d[4]);};
+let ws, order=[3,0,1,2], state=FX.map(f=>({on:false,v:f.p.map(()=>0)}));
+const $=id=>document.getElementById(id);
+function send(o){ if(ws&&ws.readyState==1) ws.send(JSON.stringify(o)); }
+function build(){
+ const root=$("effects"); root.innerHTML="";
+ order.forEach(e=>{const f=FX[e]; const div=document.createElement("div"); div.className="fx";
+  div.innerHTML=`<header><b>${f.n}</b><button data-on=${e} class="${state[e].on?"on":""}">${state[e].on?"ON":"off"}</button></header>`+
+   f.p.map((d,i)=>`<div class=p><span>${d[0]}</span><input type=range min=0 max=16383 data-cc=${e*8+i} value=${Math.round(state[e].v[i]*16383)}><span id="v${e}_${i}">${fmt(d,state[e].v[i])}</span></div>`).join("");
+  root.appendChild(div);});
+ root.querySelectorAll("button[data-on]").forEach(b=>b.onclick=()=>{const e=+b.dataset.on; send({on:e,v:state[e].on?0:1});});
+ root.querySelectorAll("input[type=range]").forEach(r=>r.oninput=()=>{const cc=+r.dataset.cc,e=cc>>3,i=cc&7; state[e].v[i]=r.value/16383; $(`v${e}_${i}`).textContent=fmt(FX[e].p[i],state[e].v[i]); send({cc:cc,v14:+r.value});});
+ $("order").innerHTML=order.map((e,k)=>`${FX[e].n} ${k<3?'<button data-mv='+k+'>⇄</button>':''}`).join(" ");
+ $("order").querySelectorAll("button").forEach(b=>b.onclick=()=>{const k=+b.dataset.mv;[order[k],order[k+1]]=[order[k+1],order[k]];send({order:order});build();});
+}
+function onMsg(m){
+ if("order" in m){order=m.order;build();return;}
+ if("on" in m){state[m.on].on=!!m.v;build();return;}
+ if("cc" in m){const cc=m.cc; if(cc<32){const e=cc>>3,i=cc&7; state[e].v[i]=m.v/127;} else if(cc<64){const e=(cc-32)>>3,i=(cc-32)&7; state[e].v[i]=((Math.round(state[e].v[i]*127)<<7)|m.v)/16383; const r=document.querySelector(`input[data-cc="${cc-32}"]`); if(r){r.value=Math.round(state[e].v[i]*16383);$(`v${e}_${i}`).textContent=fmt(FX[e].p[i],state[e].v[i]);}} else if(cc==70)$("hp").value=m.v; else if(cc==71)$("lp").value=m.v; return;}
+ if("hp" in m){$(m.hp.slot?"hpB":"hpA").value=m.hp.hz;} if("lp" in m){$(m.lp.slot?"lpB":"lpA").value=m.lp.hz;}
+ if("tempo_ms" in m){$("bpm").textContent=(60000/m.tempo_ms).toFixed(1)+" bpm";}
+}
+function connect(){ ws=new WebSocket((location.protocol=="https:"?"wss://":"ws://")+location.host+"/ws");
+ ws.onopen=()=>{$("status").textContent="connected";send({req:"state"});}; ws.onclose=()=>{$("status").textContent="reconnecting…";setTimeout(connect,1500);};
+ ws.onmessage=ev=>onMsg(JSON.parse(ev.data)); }
+$("hp").onchange=()=>send({cc:70,v:+$("hp").value}); $("lp").onchange=()=>send({cc:71,v:+$("lp").value});
+["hpA","hpB"].forEach((id,s)=>$(id).onchange=()=>send({hp:{slot:s,hz:+$(id).value}})); ["lpA","lpB"].forEach((id,s)=>$(id).onchange=()=>send({lp:{slot:s,hz:+$(id).value}}));
+$("tap").onclick=()=>send({tap:1}); for(let i=0;i<8;i++)$("slot").add(new Option("slot "+i,i));
+$("load").onclick=()=>send({preset:{save:false,slot:+$("slot").value}}); $("save").onclick=()=>send({preset:{save:true,slot:+$("slot").value}});
+build(); connect();
+</script></body></html>
