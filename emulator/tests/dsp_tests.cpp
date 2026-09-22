@@ -227,7 +227,11 @@ static void testChainAndControl() {
     CHECK(same && r2.p.globalHp() == 2 && std::fabs(r2.p.hpFreq(1) - 300.f) < 0.5f, "state dump round-trips (%d bytes)", n);
     // preset round trip
     pedal::Preset pr; p.toPreset(pr); Rig r3; CHECK(r3.p.applyPreset(pr), "preset applies");
-    pedal::Preset pr2; r3.p.toPreset(pr2); CHECK(!std::memcmp(&pr, &pr2, sizeof pr), "preset round-trips byte-exact");
+    pedal::Preset pr2; r3.p.toPreset(pr2);
+    bool eq = pr.globalHp == pr2.globalHp && pr.globalLp == pr2.globalLp && pr.tempoSpb == pr2.tempoSpb && pr.inputTrimDb == pr2.inputTrimDb && pr.outputTrimDb == pr2.outputTrimDb;
+    for (int e = 0; e < 4; ++e) { eq &= pr.order[e] == pr2.order[e] && pr.enabled[e] == pr2.enabled[e]; for (int i = 0; i < 8; ++i) eq &= pr.params[e][i] == pr2.params[e][i]; }
+    for (int s = 0; s < 2; ++s) eq &= pr.hpFreq[s] == pr2.hpFreq[s] && pr.lpFreq[s] == pr2.lpFreq[s];
+    CHECK(eq, "preset round-trips field-exact");
     // tap tempo
     p.tap(0); p.tap(24000); p.tap(48000); CHECK(std::fabs(p.tempo() - 0.5f) < 1e-3f, "tap tempo 120 bpm (%.3f spb)", p.tempo());
     // global cuts at fc

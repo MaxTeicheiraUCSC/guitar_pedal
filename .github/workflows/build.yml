@@ -33,12 +33,12 @@ jobs:
         working-directory: emulator/build/juce/PedalEmu_artefacts/Release
         run: |
           New-Item -ItemType Directory -Force dist | Out-Null
-          Copy-Item Standalone/PedalEmu.exe dist/
           Copy-Item -Recurse VST3/PedalEmu.vst3 dist/
           Copy-Item ../../../../../LICENSE dist/
           Copy-Item ../../../../assets/README.md dist/ASSETS-README.md
           Copy-Item ../../../../assets/FREEPATS-LICENSE-CC0.txt dist/
-          Compress-Archive -Path dist/* -DestinationPath PedalEmu-windows-x64.zip
+          Copy-Item ../../../../../docs/REAPER-WINDOWS.md dist/README-REAPER.md
+          Compress-Archive -Path dist/* -DestinationPath PedalEmu-VST3-windows-x64.zip
       - name: Package (macOS)
         if: runner.os == 'macOS'
         working-directory: emulator/build/juce/PedalEmu_artefacts/Release
