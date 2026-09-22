@@ -22,3 +22,4 @@ hardware/kicad/fp-info-cache
 hardware/kicad/*.kicad_prl
 hardware/kicad/_autosave-*
 hardware/kicad/lib/3d/*.step
+.roman_handled
