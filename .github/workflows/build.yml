@@ -35,8 +35,12 @@ jobs:
           Invoke-WebRequest -Uri https://github.com/Tracktion/pluginval/releases/latest/download/pluginval_Windows.zip -OutFile pluginval.zip
           Expand-Archive pluginval.zip -DestinationPath pluginval
           New-Item -ItemType Directory -Force pluginval-logs | Out-Null
-          & pluginval/pluginval.exe --strictness-level 8 --timeout-ms 300000 --output-dir pluginval-logs --validate "VST3/PedalEmu.vst3"
-          if ($LASTEXITCODE -ne 0) { Write-Error "pluginval failed with $LASTEXITCODE"; exit 1 }
+          $args = "--strictness-level 8 --validate-in-process --timeout-ms 300000 --output-dir pluginval-logs --validate VST3/PedalEmu.vst3"
+          $proc = Start-Process -FilePath "pluginval/pluginval.exe" -ArgumentList $args -Wait -PassThru -NoNewWindow -RedirectStandardOutput pluginval-stdout.txt
+          Get-Content pluginval-stdout.txt | Select-Object -Last 40
+          Copy-Item pluginval-stdout.txt pluginval-logs/
+          if ($proc.ExitCode -ne 0) { Write-Error "pluginval failed with exit code $($proc.ExitCode)"; exit 1 }
+          "pluginval exit code: $($proc.ExitCode)"
       - name: Run the standalone on the Windows desktop and screenshot it
         if: runner.os == 'Windows'
         shell: pwsh
