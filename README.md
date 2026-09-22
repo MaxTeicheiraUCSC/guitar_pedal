@@ -28,7 +28,10 @@ cmake -B build-juce -DPEDAL_BUILD_JUCE=ON -DPEDAL_HARNESS=ON && ./build-juce/juc
 cd ../hardware/spice/validate && python3 run_all.py # simple model vs ngspice → out/report.md
 ```
 
-## Status (2026-09-21)
+Handover: **[`docs/STATUS.md`](docs/STATUS.md)** (what is and is not verified, next steps) and
+**[`docs/LEARNINGS.md`](docs/LEARNINGS.md)** (the non-obvious things this cost time to find).
+
+## Status (2026-09-22)
 
 - DSP core, emulator CLI, property tests, SPICE reference and validation harness: **done and passing**.
 - Validation found and fixed a real error in the hand-derived analog model (input gain −6.2 dB, not −4.6 dB)
@@ -36,7 +39,10 @@ cd ../hardware/spice/validate && python3 run_all.py # simple model vs ngspice �
   → the carrier board gets Schottky clamps at the codec input.
 - JUCE front panel: builds Standalone + VST3 (AU needs full Xcode). Default source is an embedded CC0 clean-guitar loop (`emulator/assets`), so no interface is needed to audition; live input is a menu choice. `PedalHarness` drives the real processor + editor with concurrent audio at 44.1/48/96 kHz and passes.
 - Daisy / ESP32 firmware: written, **not compiled** (toolchains not installed on this machine).
-- Hardware (KiCad, enclosure): not started. First hardware task is the Phase A bench measurement in `docs/design.md` §11.
+- KiCad carrier board: generated from one netlist, routed, 0 DRC errors with schematic parity; gerbers/STEP/BOM in `hardware/kicad/out/`.
+- Windows VST3 v0.1.3 links the CRT statically and ships an installer — earlier builds needed the VC++ redistributable and failed to load without it.
+- Hardware: nothing fabricated. First hardware task is the Phase A bench measurement in `docs/design.md` §11.
+- A project guard (`.claude/settings.json` + `.claude/hooks/guard.py`) confines Claude Code sessions in this repo to this repo; see `docs/STATUS.md`.
 
 ## Windows / macOS binaries
 
