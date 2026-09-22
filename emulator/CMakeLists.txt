@@ -6,6 +6,12 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
 
+# Windows: link the MSVC runtime statically. A plugin that imports MSVCP140/VCRUNTIME140
+# fails to load on any machine without the Visual C++ 2015-2022 Redistributable, which the
+# host reports only as "failed to load"/"import failed". Static linking removes that
+# dependency; tools/check_pe_imports.py enforces it in CI.
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+
 # The DSP core is header-only; these flags mirror the firmware build so host code
 # cannot accidentally depend on exceptions/RTTI.
 add_library(pedal_dsp INTERFACE)

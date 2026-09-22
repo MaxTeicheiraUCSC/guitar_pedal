@@ -41,8 +41,10 @@ cd ../hardware/spice/validate && python3 run_all.py # simple model vs ngspice â†
 ## Windows / macOS binaries
 
 `.github/workflows/build.yml` builds the emulator on `windows-latest` (MSVC) and `macos-latest`, runs the
-DSP tests, and uploads `PedalEmu-VST3-windows-x64.zip` (PedalEmu.vst3) and `PedalEmu-macos.zip`
-as workflow artifacts; pushing a tag `v*` publishes them as a GitHub Release. Windows testing notes for Reaper: `docs/REAPER-WINDOWS.md`. Local Windows build:
+DSP tests, and uploads `PedalEmu-windows-x64.zip` (installer + PedalEmu.vst3 + standalone) and the setup .exe and `PedalEmu-macos.zip`
+as workflow artifacts; pushing a tag `v*` publishes them as a GitHub Release. Windows install/troubleshooting: `docs/WINDOWS-INSTALL.md`. The Windows job also builds an
+Inno Setup installer, checks the binaries have no dynamic MSVC-runtime dependency, and re-validates
+the plugin after extracting the shipped zip. Local Windows build:
 `cd emulator && cmake -B build -DPEDAL_BUILD_JUCE=ON && cmake --build build --config Release --target PedalEmu_Standalone PedalEmu_VST3`
 (Visual Studio 2022 Build Tools; JUCE 8.0.9 is fetched by CMake). The Windows build has only been
 exercised in CI â€” see the Actions tab for the current status.

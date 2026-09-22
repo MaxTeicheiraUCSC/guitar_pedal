@@ -27,6 +27,12 @@ jobs:
         shell: bash
         run: |
           if [ -x build/Release/dsp_tests.exe ]; then build/Release/dsp_tests.exe; else build/dsp_tests; fi
+      - name: No dynamic MSVC runtime dependency (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          python tools/check_pe_imports.py emulator/build/juce/PedalEmu_artefacts/Release/VST3/PedalEmu.vst3/Contents/x86_64-win/PedalEmu.vst3 --list
+          python tools/check_pe_imports.py emulator/build/juce/PedalEmu_artefacts/Release/Standalone/PedalEmu.exe
       - name: Validate VST3 with pluginval (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
@@ -65,6 +71,20 @@ jobs:
             emulator/build/juce/PedalEmu_artefacts/Release/pluginval-logs/**
             emulator/build/juce/PedalEmu_artefacts/Release/pedalemu-windows-desktop.png
             emulator/build/juce/PedalEmu_artefacts/Release/standalone-run.txt
+            emulator/build/juce/PedalEmu_artefacts/Release/ziptest-pluginval.txt
+      - name: Build the Windows installer (Inno Setup)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $iscc = Get-ChildItem "C:\Program Files (x86)\Inno Setup 6\ISCC.exe","C:\Program Files\Inno Setup 6\ISCC.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $iscc) { Write-Error "ISCC.exe (Inno Setup 6) not found on this runner"; exit 1 }
+          $ver = "${{ github.ref_type == 'tag' && github.ref_name || '0.0.0-dev' }}" -replace '^v',''
+          $src = Resolve-Path emulator/build/juce/PedalEmu_artefacts/Release
+          $repo = Resolve-Path .
+          & $iscc.FullName "/DMyAppVersion=$ver" "/DSrcDir=$src" "/DRepoDir=$repo" `
+              "/O$repo\emulator\build\juce\PedalEmu_artefacts\Release" installer\pedalemu.iss
+          if ($LASTEXITCODE -ne 0) { Write-Error "Inno Setup failed ($LASTEXITCODE)"; exit 1 }
+          Get-ChildItem emulator/build/juce/PedalEmu_artefacts/Release/*setup.exe | ForEach-Object { "built: $($_.Name) ($([math]::Round($_.Length/1MB,1)) MB)" }
       - name: Package (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
@@ -72,11 +92,33 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force dist | Out-Null
           Copy-Item -Recurse VST3/PedalEmu.vst3 dist/
+          Copy-Item Standalone/PedalEmu.exe dist/
+          Copy-Item *setup.exe dist/
           Copy-Item ../../../../../LICENSE dist/
           Copy-Item ../../../../assets/README.md dist/ASSETS-README.md
           Copy-Item ../../../../assets/FREEPATS-LICENSE-CC0.txt dist/
-          Copy-Item ../../../../../docs/REAPER-WINDOWS.md dist/README-REAPER.md
-          Compress-Archive -Path dist/* -DestinationPath PedalEmu-VST3-windows-x64.zip
+          Copy-Item ../../../../../docs/WINDOWS-INSTALL.md dist/README-FIRST.txt
+          Compress-Archive -Path dist/* -DestinationPath PedalEmu-windows-x64.zip -Force
+      - name: Verify the shipped zip extracts and the extracted plugin loads
+        if: runner.os == 'Windows'
+        shell: pwsh
+        working-directory: emulator/build/juce/PedalEmu_artefacts/Release
+        run: |
+          # Extract exactly as a user would, into a fresh folder, and validate THAT copy -
+          # this is what catches a package that "didn't extract properly".
+          Remove-Item -Recurse -Force ziptest -ErrorAction SilentlyContinue
+          Expand-Archive PedalEmu-windows-x64.zip -DestinationPath ziptest
+          $dll = "ziptest/PedalEmu.vst3/Contents/x86_64-win/PedalEmu.vst3"
+          foreach ($f in @($dll, "ziptest/PedalEmu.vst3/Contents/Resources/moduleinfo.json", "ziptest/README-FIRST.txt")) {
+            if (-not (Test-Path $f)) { Write-Error "missing from the extracted package: $f"; exit 1 }
+          }
+          python ../../../../../tools/check_pe_imports.py $dll
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          $a = "--strictness-level 8 --validate-in-process --timeout-ms 300000 --validate ziptest/PedalEmu.vst3"
+          $pv = Start-Process -FilePath "pluginval/pluginval.exe" -ArgumentList $a -Wait -PassThru -NoNewWindow -RedirectStandardOutput ziptest-pluginval.txt
+          Get-Content ziptest-pluginval.txt | Select-Object -Last 5
+          if ($pv.ExitCode -ne 0) { Write-Error "the extracted copy failed pluginval ($($pv.ExitCode))"; exit 1 }
+          "extracted package validated"
       - name: Package (macOS)
         if: runner.os == 'macOS'
         working-directory: emulator/build/juce/PedalEmu_artefacts/Release
@@ -86,7 +128,9 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: PedalEmu-${{ runner.os }}
-          path: emulator/build/juce/PedalEmu_artefacts/Release/PedalEmu-*.zip
+          path: |
+            emulator/build/juce/PedalEmu_artefacts/Release/PedalEmu-*.zip
+            emulator/build/juce/PedalEmu_artefacts/Release/*setup.exe
 
   release:
     needs: emulator
@@ -99,5 +143,7 @@ jobs:
         with: { path: artifacts }
       - uses: softprops/action-gh-release@v2
         with:
-          files: artifacts/**/PedalEmu-*.zip
+          files: |
+            artifacts/**/PedalEmu-*.zip
+            artifacts/**/*setup.exe
           generate_release_notes: true
