@@ -1,0 +1,45 @@
+{
+  "permissions": {
+    "deny": [
+      "WebFetch",
+      "WebSearch",
+      "mcp__claude_ai_Gmail__send_message",
+      "mcp__claude_ai_Gmail__forward",
+      "mcp__claude_ai_Gmail__create_draft",
+      "mcp__claude_ai_Gmail__update_draft",
+      "mcp__claude_ai_Gmail__delete_draft",
+      "mcp__claude_ai_Gmail__trash_message",
+      "mcp__claude_ai_Gmail__trash_thread",
+      "mcp__claude_ai_Gmail__untrash_message",
+      "mcp__claude_ai_Gmail__untrash_thread",
+      "mcp__claude_ai_Gmail__mark_message_spam",
+      "mcp__claude_ai_Gmail__mark_thread_spam",
+      "mcp__claude_ai_Google_Calendar__*",
+      "mcp__claude_ai_Google_Drive__*",
+      "mcp__claude_ai_Slack__*",
+      "mcp__claude_ai_Claude_Docs__*",
+      "mcp__lab-knowledge__*",
+      "Read(//Users/maxteicheira/.ssh/**)",
+      "Read(//Users/maxteicheira/.aws/**)",
+      "Read(//Users/maxteicheira/.config/**)",
+      "Read(//Users/maxteicheira/.claude/**)",
+      "Read(//etc/**)",
+      "Edit(//Users/maxteicheira/.claude/**)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Read|Edit|Write|MultiEdit|NotebookEdit|Glob|Grep|Bash|WebFetch|WebSearch|mcp__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/usr/bin/python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard.py\"",
+            "timeout": 10,
+            "statusMessage": "repo guard"
+          }
+        ]
+      }
+    ]
+  }
+}
