@@ -56,7 +56,13 @@ DENIED_CMDS = {"curl", "wget", "nc", "ncat", "netcat", "ssh", "scp", "sftp", "rs
                "osascript", "open", "security", "defaults", "launchctl", "sudo", "su", "printenv", "crontab", "dscl", "pbcopy",
                "screencapture", "say", "brew", "pip", "pip3", "conda", "npm", "npx", "node", "uv", "uvx"}
 BAD_PATH_RE = re.compile(r"(~|\$HOME|\$\{HOME\}|/Users/(?!maxteicheira/Documents/Claude/guitar_pedal(/|\s|$|['\"]))|/etc/|/private/etc|/var/(?!folders)|/Library/|/System/|\.ssh|\.aws|\.gnupg|\.netrc|\.claude(?!/hooks|/settings)|\.config/|Keychain|/\.\./)")
-GIT_DENY_RE = re.compile(r"\bgit\s+(config|remote|credential|push\s+.*(--force|-f\b|\+)|filter-branch|update-ref|--exec-path|-c\s+)")
+GIT_DENY_RE = re.compile(
+    r"\bgit\s+("
+    r"config(?!\s+(--get|--list|-l\b))"                     # reading config is fine; writing is not
+    r"|remote\s+(add|remove|rm|rename|set-url|set-head|set-branches|prune)"   # `git remote -v/show` is read-only
+    r"|credential|filter-branch|update-ref|--exec-path|-c\s+"
+    r"|push\s+.*(--force|-f\b|\+)"
+    r")")
 GH_ALLOW_RE = re.compile(r"\bgh\s+(run|release|repo\s+view|auth\s+status)\b")
 
 HEREDOC_RE = re.compile(r"<<-?\s*['\"]?(\w+)['\"]?[^\n]*\n.*?\n\1[ \t]*(?=\n|$)", re.S)
