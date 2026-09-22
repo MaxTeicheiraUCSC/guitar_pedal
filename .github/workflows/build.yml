@@ -27,6 +27,40 @@ jobs:
         shell: bash
         run: |
           if [ -x build/Release/dsp_tests.exe ]; then build/Release/dsp_tests.exe; else build/dsp_tests; fi
+      - name: Validate VST3 with pluginval (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        working-directory: emulator/build/juce/PedalEmu_artefacts/Release
+        run: |
+          Invoke-WebRequest -Uri https://github.com/Tracktion/pluginval/releases/latest/download/pluginval_Windows.zip -OutFile pluginval.zip
+          Expand-Archive pluginval.zip -DestinationPath pluginval
+          New-Item -ItemType Directory -Force pluginval-logs | Out-Null
+          & pluginval/pluginval.exe --strictness-level 8 --timeout-ms 300000 --output-dir pluginval-logs --validate "VST3/PedalEmu.vst3"
+          if ($LASTEXITCODE -ne 0) { Write-Error "pluginval failed with $LASTEXITCODE"; exit 1 }
+      - name: Run the standalone on the Windows desktop and screenshot it
+        if: runner.os == 'Windows'
+        shell: pwsh
+        working-directory: emulator/build/juce/PedalEmu_artefacts/Release
+        run: |
+          $p = Start-Process -FilePath "Standalone/PedalEmu.exe" -PassThru
+          Start-Sleep -Seconds 12
+          if ($p.HasExited) { Write-Error "PedalEmu.exe exited early with code $($p.ExitCode)"; exit 1 }
+          Add-Type -AssemblyName System.Windows.Forms; Add-Type -AssemblyName System.Drawing
+          $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+          $bmp = New-Object System.Drawing.Bitmap $b.Width, $b.Height
+          $g = [System.Drawing.Graphics]::FromImage($bmp); $g.CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
+          $bmp.Save("$PWD/pedalemu-windows-desktop.png", [System.Drawing.Imaging.ImageFormat]::Png)
+          "PedalEmu.exe alive after 12 s (pid $($p.Id)), window title: $($p.MainWindowTitle)" | Tee-Object -FilePath standalone-run.txt
+          Stop-Process -Id $p.Id -Force
+      - name: Upload Windows validation evidence
+        if: runner.os == 'Windows' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-validation
+          path: |
+            emulator/build/juce/PedalEmu_artefacts/Release/pluginval-logs/**
+            emulator/build/juce/PedalEmu_artefacts/Release/pedalemu-windows-desktop.png
+            emulator/build/juce/PedalEmu_artefacts/Release/standalone-run.txt
       - name: Package (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
