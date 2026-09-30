@@ -26,7 +26,13 @@ int main() {
             }
             std::printf("live mono, signal on input 2 only: out rms %.4f\n", acc / 10);
             if (acc / 10 < 0.02) { std::printf("LIVE INPUT 2 DROPPED IN MONO\n"); return 1; }
-            proc->forceMono = false; proc->source = PedalProcessor::Silence;
+            proc->forceMono = false;
+            // a device that delivers pure digital silence (e.g. Windows shared mode on some interfaces) must be flagged after a few seconds
+            if (proc->liveSilentSeconds() > 0.1) { std::printf("SILENCE COUNTER NOT RESET BY SIGNAL\n"); return 1; }
+            for (int b = 0; b < 4 * 48000 / 512; ++b) { buf.clear(); midi.clear(); proc->processBlock(buf, midi); }
+            std::printf("live, dead device: silent for %.2f s\n", proc->liveSilentSeconds());
+            if (proc->liveSilentSeconds() < 3.0) { std::printf("DEAD INPUT NOT DETECTED\n"); return 1; }
+            proc->source = PedalProcessor::Silence;
         }
         proc->keyboardState.noteOn(1, 52, 1.0f);
         for (int b = 0; b < 20; ++b) { buf.clear(); midi.clear(); proc->processBlock(buf, midi); if (b % 5 == 0) std::printf("held block %d rms %.4f mean %.4f\n", b, buf.getRMSLevel(0, 0, 512), buf.getSample(0, 0)); }

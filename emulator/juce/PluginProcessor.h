@@ -55,6 +55,9 @@ public:
     std::atomic<float> inputVpk { 1.0f };      // scales normalised input to volts at the jack when hwModel is on
     std::atomic<float> loadPercent { 0.f };    // DSP time / block time
     std::atomic<float> inPeakL { 0.f }, inPeakR { 0.f };   // live input peaks (decaying), for the source label
+    // seconds of pure digital silence (below -120 dBFS) on every live input channel; a real interface always has
+    // some noise, so a long run means the device is delivering nothing (seen with Windows Audio shared mode on a Volt 2)
+    double liveSilentSeconds() const { const double sr = getSampleRate(); return sr > 0 ? liveSilentSamples_.load() / sr : 0.0; }
     void requestTap() { tapPending_ = true; }
     bool loadPresetFile(const juce::File& f);
     bool savePresetFile(const juce::File& f);
@@ -73,6 +76,7 @@ private:
     hw::InputStage inL_, inR_; hw::OutputStage outL_, outR_;
     std::vector<pedal::Frame> block_;
     std::atomic<bool> tapPending_ { false };
+    std::atomic<int64_t> liveSilentSamples_ { 0 };
     bool setLoop(std::unique_ptr<juce::AudioFormatReader> reader, const juce::String& name);
     juce::AudioFormatManager formats_;
     juce::AudioBuffer<float> loop_;             // file-rate samples

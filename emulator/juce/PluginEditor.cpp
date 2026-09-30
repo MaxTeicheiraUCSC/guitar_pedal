@@ -166,11 +166,18 @@ void PedalEditor::timerCallback() {
     if (blink_ % 15 == 0) loadLabel_.setText("host DSP load " + juce::String(proc_.loadPercent.load(), 1) + " %", juce::dontSendNotification);
     if (blink_ % 15 == 0) {
         const int src = proc_.source.load();
+#if JUCE_WINDOWS
+        static const juce::String noInputHint = "no audio from the input device: in Options > Audio Settings try 'Windows Audio (Exclusive Mode)'";
+#else
+        static const juce::String noInputHint = "no audio from the input device: check the input in Options > Audio Settings";
+#endif
         auto db = [](float pk) { return pk < 1e-5f ? juce::String("-inf") : juce::String(juce::Decibels::gainToDecibels(pk), 0); };
         sourceLabel_.setText(src == PedalProcessor::Loop ? "loop: " + proc_.loopName() + "  " + juce::String(proc_.loopLengthSeconds(), 1) + " s"
                            : src == PedalProcessor::Silence ? juce::String("keys only")
+                           : proc_.liveSilentSeconds() > 3.0 ? noInputHint
                            : "live in 1: " + db(proc_.inPeakL.load()) + " dB   in 2: " + db(proc_.inPeakR.load()) + " dB" + (proc_.forceMono.load() ? "  (mono: 1+2 summed)" : "")
                              + "   (device: Options > Audio Settings)", juce::dontSendNotification);
+        sourceLabel_.setColour(juce::Label::textColourId, src == PedalProcessor::Live && proc_.liveSilentSeconds() > 3.0 ? kWaiting : juce::Colours::white);
     }
 }
 

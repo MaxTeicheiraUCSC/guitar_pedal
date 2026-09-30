@@ -49,7 +49,19 @@ Every effect parameter is exposed for DAW automation, and the MIDI CC/SysEx map 
 ### Live guitar is silent (standalone app)
 
 With *Live input* selected, the line under the Source menu shows the level on input 1
-and input 2. If your guitar shows up on input 2 only (for example the second jack on a
+and input 2.
+
+**Nothing on either input, and the input meter in Options > Audio Settings stays empty.**
+The app is getting no audio from the interface at all. Setting the gain or the INST
+switch will not change that. In Options > Audio Settings, set *Audio device type* to
+**Windows Audio (Exclusive Mode)** and keep the sample rate at 48000 Hz. This fixed a
+Volt 2 that delivered only silence in plain *Windows Audio* mode. Exclusive mode stops
+other apps (a browser, say) from playing through the interface while PedalEmu is open.
+Exclusive mode also allows small buffers. Try 128 samples and go up a step if you hear
+crackles. From v0.1.5 the app flags this case under the Source menu after 3 s of
+complete silence.
+
+**Guitar on input 2 is silent with *TS plug (mono)* ticked.** If your guitar shows up on input 2 only (for example the second jack on a
 Volt 2 or Scarlett), versions before v0.1.4 dropped it whenever *TS plug (mono)*
 was ticked, because mono mode read input 1 alone. Mono mode now sums inputs 1 and 2.
 On older builds, move the guitar to input 1 or untick *TS plug (mono)*.

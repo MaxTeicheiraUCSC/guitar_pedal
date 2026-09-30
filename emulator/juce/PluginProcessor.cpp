@@ -128,6 +128,8 @@ void PedalProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBu
         const float pl = juce::FloatVectorOperations::findMaximum(buffer.getReadPointer(0), n), ml = -juce::FloatVectorOperations::findMinimum(buffer.getReadPointer(0), n);
         inPeakL.store(juce::jmax(pl, ml, inPeakL.load() * 0.9f));
         if (nIn > 1) { const float pr = juce::FloatVectorOperations::findMaximum(inR, n), mr = -juce::FloatVectorOperations::findMinimum(inR, n); inPeakR.store(juce::jmax(pr, mr, inPeakR.load() * 0.9f)); }
+        const float blockPeak = juce::jmax(pl, ml, nIn > 1 ? buffer.getMagnitude(1, 0, n) : 0.f);
+        if (blockPeak < 1e-6f) liveSilentSamples_ += n; else liveSilentSamples_ = 0;
         if (nIn > 1 && !stereo) {
             // mono (TS plug): an interface puts the guitar on input 1 OR input 2, so fold both into L rather than
             // dropping R. An interface that duplicates one input onto both channels reads +6 dB; the input level slider covers it.
