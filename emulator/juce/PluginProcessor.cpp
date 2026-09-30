@@ -123,6 +123,19 @@ void PedalProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBu
     } else if (source.load() == Silence) {
         loopScratch_.setSize(2, n, false, false, true); loopScratch_.clear();
         inL = loopScratch_.getReadPointer(0); inR = loopScratch_.getReadPointer(1);
+    } else {
+        // live: per-channel peaks for the on-screen meter, so a guitar landing on the "wrong" input is visible
+        const float pl = juce::FloatVectorOperations::findMaximum(buffer.getReadPointer(0), n), ml = -juce::FloatVectorOperations::findMinimum(buffer.getReadPointer(0), n);
+        inPeakL.store(juce::jmax(pl, ml, inPeakL.load() * 0.9f));
+        if (nIn > 1) { const float pr = juce::FloatVectorOperations::findMaximum(inR, n), mr = -juce::FloatVectorOperations::findMinimum(inR, n); inPeakR.store(juce::jmax(pr, mr, inPeakR.load() * 0.9f)); }
+        if (nIn > 1 && !stereo) {
+            // mono (TS plug): an interface puts the guitar on input 1 OR input 2, so fold both into L rather than
+            // dropping R. An interface that duplicates one input onto both channels reads +6 dB; the input level slider covers it.
+            loopScratch_.setSize(2, n, false, false, true);
+            float* m = loopScratch_.getWritePointer(0);
+            for (int i = 0; i < n; ++i) m[i] = inL[i] + inR[i];
+            inL = inR = m;
+        }
     }
     // keyboard sampler is mixed onto whatever the source is (mono into both channels)
     keysScratch_.setSize(2, n, false, false, true); keysScratch_.clear();

@@ -17,6 +17,17 @@ int main() {
         { proc->source = PedalProcessor::Loop; float pk = 0.f; double acc = 0; const int nb = static_cast<int>(proc->loopLengthSeconds() * 48000 / 512) + 1;
           for (int b = 0; b < nb; ++b) { buf.clear(); midi.clear(); proc->processBlock(buf, midi); pk = std::max(pk, buf.getMagnitude(0, 512)); acc += buf.getRMSLevel(0, 0, 512); }
           std::printf("fresh processor, loop only: peak %.3f mean rms %.4f\n", pk, acc / nb); proc->source = PedalProcessor::Silence; }
+        {   // live input, TS (mono) ticked, guitar on the interface's input 2 only (right channel): must still come through
+            proc->source = PedalProcessor::Live; proc->forceMono = true; double acc = 0;
+            for (int b = 0; b < 20; ++b) {
+                buf.clear(); midi.clear();
+                for (int i = 0; i < 512; ++i) buf.setSample(1, i, 0.3f * std::sin(2.0 * juce::MathConstants<double>::pi * 110.0 * (b * 512 + i) / 48000.0));
+                proc->processBlock(buf, midi); if (b >= 10) acc += buf.getRMSLevel(0, 0, 512);
+            }
+            std::printf("live mono, signal on input 2 only: out rms %.4f\n", acc / 10);
+            if (acc / 10 < 0.02) { std::printf("LIVE INPUT 2 DROPPED IN MONO\n"); return 1; }
+            proc->forceMono = false; proc->source = PedalProcessor::Silence;
+        }
         proc->keyboardState.noteOn(1, 52, 1.0f);
         for (int b = 0; b < 20; ++b) { buf.clear(); midi.clear(); proc->processBlock(buf, midi); if (b % 5 == 0) std::printf("held block %d rms %.4f mean %.4f\n", b, buf.getRMSLevel(0, 0, 512), buf.getSample(0, 0)); }
         proc->keyboardState.noteOff(1, 52, 0.f);

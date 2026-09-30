@@ -164,7 +164,14 @@ void PedalEditor::timerCallback() {
     tempoLabel_.setText(juce::String("bpm ") + (beat ? "*" : " ") + (selectMode_ ? " [select fx]" : ""), juce::dontSendNotification);
     if (!bpmBox_.hasKeyboardFocus(true) && std::fabs(bpmBox_.getText().getFloatValue() - bpm) > 0.05f) bpmBox_.setText(juce::String(bpm, 1), juce::dontSendNotification);
     if (blink_ % 15 == 0) loadLabel_.setText("host DSP load " + juce::String(proc_.loadPercent.load(), 1) + " %", juce::dontSendNotification);
-    if (blink_ % 15 == 0) sourceLabel_.setText(proc_.source.load() == PedalProcessor::Loop ? "loop: " + proc_.loopName() + "  " + juce::String(proc_.loopLengthSeconds(), 1) + " s" : "live input (enable it under Options > Audio Settings)", juce::dontSendNotification);
+    if (blink_ % 15 == 0) {
+        const int src = proc_.source.load();
+        auto db = [](float pk) { return pk < 1e-5f ? juce::String("-inf") : juce::String(juce::Decibels::gainToDecibels(pk), 0); };
+        sourceLabel_.setText(src == PedalProcessor::Loop ? "loop: " + proc_.loopName() + "  " + juce::String(proc_.loopLengthSeconds(), 1) + " s"
+                           : src == PedalProcessor::Silence ? juce::String("keys only")
+                           : "live in 1: " + db(proc_.inPeakL.load()) + " dB   in 2: " + db(proc_.inPeakR.load()) + " dB" + (proc_.forceMono.load() ? "  (mono: 1+2 summed)" : "")
+                             + "   (device: Options > Audio Settings)", juce::dontSendNotification);
+    }
 }
 
 void PedalEditor::paint(juce::Graphics& g) {

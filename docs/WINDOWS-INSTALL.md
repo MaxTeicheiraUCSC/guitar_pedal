@@ -45,3 +45,11 @@ connected. Pick *Live input* in the Source menu to run the track's audio through
 pedal, or play the on-screen keyboard (it also responds to MIDI sent to the track).
 Every effect parameter is exposed for DAW automation, and the MIDI CC/SysEx map in
 `docs/midi-map.md` works from a controller.
+
+### Live guitar is silent (standalone app)
+
+With *Live input* selected, the line under the Source menu shows the level on input 1
+and input 2. If your guitar shows up on input 2 only (for example the second jack on a
+Volt 2 or Scarlett), versions before the fix below dropped it whenever *TS plug (mono)*
+was ticked, because mono mode read input 1 alone. Mono mode now sums inputs 1 and 2.
+On older builds, move the guitar to input 1 or untick *TS plug (mono)*.

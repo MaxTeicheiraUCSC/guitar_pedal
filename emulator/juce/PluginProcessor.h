@@ -54,6 +54,7 @@ public:
     std::atomic<bool> forceMono { false };
     std::atomic<float> inputVpk { 1.0f };      // scales normalised input to volts at the jack when hwModel is on
     std::atomic<float> loadPercent { 0.f };    // DSP time / block time
+    std::atomic<float> inPeakL { 0.f }, inPeakR { 0.f };   // live input peaks (decaying), for the source label
     void requestTap() { tapPending_ = true; }
     bool loadPresetFile(const juce::File& f);
     bool savePresetFile(const juce::File& f);
